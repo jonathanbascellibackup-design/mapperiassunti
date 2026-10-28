@@ -1,1 +1,542 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Study Summary - Free & Pro</title>
+<!-- Tesseract.js per OCR client-side -->
+<script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+<!-- html2pdf.js per esportazione PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f7f6;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.container {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    max-width: 650px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 30px;
+}
+h2 { color: #333; margin-bottom: 20px; text-align: center; }
 
+.section-box {
+    background: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+.section-box h3 { margin-top: 0; color: #007bff; font-size: 16px; }
+
+.btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    font-size: 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s;
+    margin: 5px 0;
+    display: inline-block;
+}
+.btn:hover { background-color: #45a049; }
+.btn-scan { background-color: #ff9800; }
+.btn-scan:hover { background-color: #e68900; }
+.btn-summarize { background-color: #007bff; width: 100%; padding: 12px; font-size: 16px; margin-top: 10px; }
+.btn-summarize:hover { background-color: #0056b3; }
+
+.btn-action {
+    background-color: #6c757d;
+    padding: 8px 16px;
+    font-size: 13px;
+    margin-right: 8px;
+}
+.btn-copy { background-color: #17a2b8; }
+.btn-pdf { background-color: #dc3545; }
+
+input[type="file"] { display: none; }
+
+#preview {
+    max-width: 100%;
+    max-height: 150px;
+    margin: 10px auto;
+    border-radius: 6px;
+    display: block;
+}
+
+textarea {
+    width: 100%;
+    height: 120px;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-family: inherit;
+    font-size: 14px;
+    box-sizing: border-box;
+    resize: vertical;
+}
+textarea:focus { outline: none; border-color: #007bff; }
+
+.loading {
+    margin-top: 10px;
+    color: #666;
+    font-style: italic;
+    font-size: 14px;
+    display: none;
+    text-align: center;
+}
+
+.summary-box {
+    background: #eef6ff;
+    border: 1px solid #b6d4fe;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 20px;
+    white-space: pre-wrap;
+    color: #333;
+}
+.summary-box h4 { margin: 0 0 10px 0; color: #004085; }
+
+.action-bar {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px dashed #b6d4fe;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Sezione Pagamento / Pro Card */
+.pro-card-wrapper {
+    background: #121212;
+    color: #ffffff;
+    padding: 30px;
+    border-radius: 12px;
+    max-width: 650px;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    text-align: center;
+    border: 1px solid #333;
+}
+.pro-card-wrapper h2 { color: #fff; }
+.btn-crypto { background: #f7931a; color: white; border: none; padding: 14px 24px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; width: 100%; margin: 8px 0; }
+.btn-crypto:hover { background: #e08213; }
+.btn-secondary { background: #333333; color: #fff; border: 1px solid #555; }
+.btn-secondary:hover { background: #444444; }
+
+#options-container, #payment-details, #activation-section { display: none; margin-top: 20px; }
+.crypto-address { background: #000; padding: 10px; border-radius: 6px; font-family: monospace; word-break: break-all; margin: 10px 0; border: 1px solid #444; color: #00ffcc; font-size: 13px; }
+#status { margin-top: 15px; font-weight: bold; color: #ffcc00; }
+
+input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #555; background: #111; color: #fff; font-size: 15px; margin-top: 10px; text-align: center; box-sizing: border-box; }
+.warning-text { font-size: 13px; color: #ff9900; margin-top: 8px; line-height: 1.4; }
+
+/* MODAL OVERLAY */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; }
+.modal-content { background: #222; width: 90%; max-width: 500px; height: 85%; border-radius: 12px; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+.close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; color: #fff; cursor: pointer; z-index: 10000; font-weight: bold; background: rgba(0,0,0,0.5); width: 36px; height: 36px; line-height: 32px; border-radius: 50%; }
+.close-btn:hover { color: #ff4444; }
+iframe { width: 100%; height: 100%; border: none; }
+</style>
+<!-- Importa la chiave Groq protetta da config.js -->
+<script src="config.js"></script>
+</head>
+<body>
+
+<div class="container">
+<h2>📖 Smart Study Summary (Free)</h2>
+
+<!-- SEZIONE 1: IMPORTA DA GALLERIA -->
+<div class="section-box">
+<h3>Opzione A: Importa immagine dal dispositivo</h3>
+<label for="fileInput" class="btn">📁 Scegli Immagine</label>
+<input type="file" id="fileInput" accept="image/*">
+<div>
+<img id="preview" alt="Anteprima" style="display:none;">
+</div>
+<button id="scanBtn" class="btn btn-scan" style="display:none;">🔍 Scannerizza Testo</button>
+<div id="loadingOCR" class="loading">Estrazione del testo in corso... ⏳</div>
+</div>
+
+<!-- SEZIONE 2: INCOLLA DAGLI APPUNTI -->
+<div class="section-box">
+<h3>Opzione B: Incolla immagine dagli appunti</h3>
+<button id="pasteImgBtn" class="btn">📋 Incolla Immagine qui</button>
+<div style="font-size: 13px; color: #666; margin-top: 5px;">(Oppure fai clic sulla casella di testo sotto e incolla direttamente)</div>
+</div>
+
+<!-- CASELLA DI TESTO MODIFICABILE -->
+<div class="section-box" style="background: #fff;">
+<h3>📝 Testo da riassumere (Modificabile)</h3>
+<textarea id="editableText" placeholder="Qui comparirà il testo scannerizzato oppure potrai incollarlo o correggerlo manualmente..."></textarea>
+
+<button id="summarizeBtn" class="btn btn-summarize">✨ Crea Riassunto (Smart AI)</button>
+<div id="loadingSummary" class="loading">L'IA sta elaborando il riassunto... 🤖</div>
+</div>
+
+<!-- RISULTATO RIASSUNTO -->
+<div class="summary-box" id="summaryContainer" style="display:none;">
+<h4>✨ Riassunto Generato:</h4>
+<div id="outputSummary"></div>
+
+<div class="action-bar">
+<button id="copyBtn" class="btn btn-action btn-copy">📋 Copia Testo</button>
+<button id="pdfBtn" class="btn btn-action btn-pdf">📄 Salva in PDF</button>
+</div>
+</div>
+</div>
+
+<!-- SEZIONE PRO & PAGAMENTO -->
+<div class="pro-card-wrapper">
+<h2>Versione Pro</h2>
+<p>Sblocca tutte le funzionalità avanzate.</p>
+
+<!-- TASTO INIZIALE -->
+<button id="main-buy-btn" class="btn-crypto" onclick="apriOpzioni()">Acquista pro a 2.99€</button>
+
+<!-- MENU OPZIONI -->
+<div id="options-container">
+<button class="btn-crypto" onclick="inviaInBtc()">Paga ora in BTC</button>
+<button class="btn-crypto btn-secondary" onclick="apriWidgetCompra()">Non ho BTC (Compra al volo)</button>
+</div>
+
+<!-- DETTAGLI PAGAMENTO IN BITCOIN -->
+<div id="payment-details">
+<p style="font-size: 14px; margin-bottom: 5px;">Invia l'importo esatto in BTC:</p>
+<div class="crypto-address">bc1q7tv6tw732q2q30fqk9wwqw8u39d3nenjmhkv65</div>
+<p style="font-size: 14px;">Importo: <strong id="btc-val">Calcolo in corso...</strong></p>
+<div id="status">In attesa della transazione sulla Blockchain...</div>
+</div>
+
+<!-- SEZIONE ATTIVAZIONE CODICE -->
+<div id="activation-section">
+<h3 style="color: #00ff66; margin-bottom: 5px;">Pagamento Confermatissimo!</h3>
+<p style="font-size: 14px;">Scegli un codice per la tua versione pro, attenzione, dovrai rinnovare ogni mese</p>
+
+<input type="text" id="pro-code-input" placeholder="Minimo 15 caratteri..." oninput="validaLunghezza()">
+<div id="input-error" class="warning-text"></div>
+
+<button class="btn-crypto" id="submit-code-btn" style="margin-top: 15px;" onclick="verificaESalvaCodice()" disabled>Registra Codice Pro</button>
+</div>
+</div>
+
+<!-- OVERLAY WIDGET DI ACQUISTO -->
+<div id="buy-modal" class="modal-overlay">
+<div class="modal-content">
+<span class="close-btn" onclick="chiudiWidgetCompra()">×</span>
+<iframe id="onramp-frame" src=""></iframe>
+</div>
+</div>
+
+<script>
+const GROQ_API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.GROQ_API_KEY : "";
+let selectedFile = null;
+
+const fileInput = document.getElementById('fileInput');
+const preview = document.getElementById('preview');
+const scanBtn = document.getElementById('scanBtn');
+const loadingOCR = document.getElementById('loadingOCR');
+const pasteImgBtn = document.getElementById('pasteImgBtn');
+const editableText = document.getElementById('editableText');
+const summarizeBtn = document.getElementById('summarizeBtn');
+const loadingSummary = document.getElementById('loadingSummary');
+const summaryContainer = document.getElementById('summaryContainer');
+const outputSummary = document.getElementById('outputSummary');
+const copyBtn = document.getElementById('copyBtn');
+const pdfBtn = document.getElementById('pdfBtn');
+
+fileInput.addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    selectedFile = file;
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+    scanBtn.style.display = 'inline-block';
+});
+
+scanBtn.addEventListener('click', async function() {
+    if (!selectedFile) return;
+
+    loadingOCR.style.display = 'block';
+    scanBtn.disabled = true;
+
+    try {
+        const result = await Tesseract.recognize(selectedFile, 'ita+eng', { logger: info => console.log(info) });
+        const extractedText = result.data.text.trim();
+        editableText.value = extractedText ? extractedText : "Nessun testo trovato nell'immagine.";
+    } catch (error) {
+        console.error(error);
+        alert("Errore durante la scansione dell'immagine.");
+    } finally {
+        loadingOCR.style.display = 'none';
+        scanBtn.disabled = false;
+    }
+});
+
+async function handleImageBlob(blob) {
+    selectedFile = blob;
+    preview.src = URL.createObjectURL(blob);
+    preview.style.display = 'block';
+
+    loadingOCR.style.display = 'block';
+    try {
+        const result = await Tesseract.recognize(blob, 'ita+eng');
+        editableText.value = result.data.text.trim();
+    } catch (err) {
+        console.error(err);
+    } finally {
+        loadingOCR.style.display = 'none';
+    }
+}
+
+pasteImgBtn.addEventListener('click', async () => {
+    try {
+        const clipboardItems = await navigator.clipboard.read();
+        for (const item of clipboardItems) {
+            for (const type of item.types) {
+                if (type.startsWith('image/')) {
+                    const blob = await item.getType(type);
+                    handleImageBlob(blob);
+                    return;
+                }
+            }
+        }
+        alert("Nessuna immagine trovata negli appunti.");
+    } catch (err) {
+        editableText.focus();
+    }
+});
+
+window.addEventListener('paste', function(e) {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            handleImageBlob(items[i].getAsFile());
+            return;
+        }
+    }
+});
+
+async function fetchModelResponse(modelName, textToSummarize) {
+    return fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${GROQ_API_KEY}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            model: modelName,
+            messages: [
+                {
+                    role: "system",
+                    content: "Sei un assistente accademico di altissimo livello. Analizza il testo fornito ed elabora un riassunto strutturato in modo impeccabile, con punti chiave chiari ed esaustivi per lo studio, molto corto (massimo la metà dei token del testo originale)."
+                },
+                {
+                    role: "user",
+                    content: `Crea un riassunto avanzato di questo testo:\n\n${textToSummarize}`
+                }
+            ],
+            temperature: 0.3
+        })
+    });
+}
+
+summarizeBtn.addEventListener('click', async function() {
+    const textToSummarize = editableText.value.trim();
+
+    if (!textToSummarize) {
+        alert("Inserisci o scansiona del testo prima di creare il riassunto!");
+        return;
+    }
+
+    loadingSummary.style.display = 'block';
+    summarizeBtn.disabled = true;
+    summaryContainer.style.display = 'none';
+
+    const modelsToTry = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"];
+    let success = false;
+
+    for (const model of modelsToTry) {
+        try {
+            const response = await fetchModelResponse(model, textToSummarize);
+            const data = await response.json();
+
+            if (response.ok && data.choices && data.choices.length > 0) {
+                outputSummary.textContent = data.choices[0].message.content;
+                summaryContainer.style.display = 'block';
+                success = true;
+                break;
+            }
+        } catch (err) {
+            console.warn(`Fallback da ${model}...`, err);
+        }
+    }
+
+    if (!success) {
+        alert("Tutti i server sono momentaneamente occupati. Riprova tra qualche istante.");
+    }
+
+    loadingSummary.style.display = 'none';
+    summarizeBtn.disabled = false;
+});
+
+copyBtn.addEventListener('click', () => {
+    const textToCopy = outputSummary.textContent;
+    if (!textToCopy) return;
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = "✅ Copiato!";
+        setTimeout(() => { copyBtn.textContent = originalText; }, 2000);
+    });
+});
+
+pdfBtn.addEventListener('click', () => {
+    const text = outputSummary.textContent;
+    if (!text) return;
+
+    const pdfContent = document.createElement('div');
+    pdfContent.style.padding = '20px';
+    pdfContent.style.fontFamily = 'Arial, sans-serif';
+    pdfContent.style.fontSize = '12pt';
+    pdfContent.style.lineHeight = '1.6';
+    pdfContent.style.color = '#111';
+    pdfContent.innerHTML = `
+        <h2 style="color: #004085; border-bottom: 2px solid #007bff; padding-bottom: 5px;">📖 Riassunto di Studio</h2>
+        <div style="white-space: pre-wrap; margin-top: 15px;">${text}</div>
+    `;
+
+    html2pdf().set({
+        margin: 15,
+        filename: 'Riassunto_Studio.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(pdfContent).save();
+});
+
+// --- GESTIONE PAGAMENTO E MOCKAPI ---
+const MY_ADDRESS = "bc1q7tv6tw732q2q30fqk9wwqw8u39d3nenjmhkv65";
+const EUR_PRICE = 2.99;
+const MOCKAPI_ENDPOINT = "https://6ae0e292be3bc8fead980cb6.mockapi.io/api/v1/codes";
+let checkInterval = null;
+
+function apriOpzioni() {
+    document.getElementById('main-buy-btn').style.display = 'none';
+    document.getElementById('options-container').style.display = 'block';
+}
+
+async function inviaInBtc() {
+    document.getElementById('payment-details').style.display = 'block';
+
+    try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
+        const data = await res.json();
+        const btcPriceInEur = data.bitcoin.eur;
+        const btcExpected = (EUR_PRICE / btcPriceInEur).toFixed(8);
+        document.getElementById('btc-val').innerText = btcExpected + " BTC";
+    } catch(e) {
+        document.getElementById('btc-val').innerText = "~ 2.99 € in BTC";
+    }
+
+    if (!checkInterval) {
+        checkInterval = setInterval(verificaPagamentoBlockchain, 5000);
+    }
+}
+
+function apriWidgetCompra() {
+    const widgetUrl = `https://widget.changelly.com?from=eur&to=btc&amount=3&address=${MY_ADDRESS}&theme=dark`;
+    document.getElementById('onramp-frame').src = widgetUrl;
+    document.getElementById('buy-modal').style.display = 'flex';
+}
+
+function chiudiWidgetCompra() {
+    document.getElementById('buy-modal').style.display = 'none';
+    document.getElementById('onramp-frame').src = "";
+}
+
+async function verificaPagamentoBlockchain() {
+    try {
+        const res = await fetch(`https://mempool.space/api/address/${MY_ADDRESS}/txs`);
+        const txs = await res.json();
+
+        if (txs && txs.length > 0) {
+            clearInterval(checkInterval);
+            document.getElementById('payment-details').style.display = 'none';
+            document.getElementById('activation-section').style.display = 'block';
+        }
+    } catch (e) {
+        console.error("Errore verifica blockchain:", e);
+    }
+}
+
+function validaLunghezza() {
+    const val = document.getElementById('pro-code-input').value;
+    const errDiv = document.getElementById('input-error');
+    const btn = document.getElementById('submit-code-btn');
+
+    if (val.length < 15) {
+        errDiv.innerText = `Mancano ancora ${15 - val.length} caratteri (minimo 15).`;
+        btn.disabled = true;
+        btn.style.opacity = "0.5";
+    } else {
+        errDiv.innerText = "";
+        btn.disabled = false;
+        btn.style.opacity = "1";
+    }
+}
+
+async function verificaESalvaCodice() {
+    const inserito = document.getElementById('pro-code-input').value.trim();
+    const btn = document.getElementById('submit-code-btn');
+
+    btn.innerText = "Verifica in corso...";
+    btn.disabled = true;
+
+    try {
+        // Legge la lista esistente da MockAPI
+        const response = await fetch(MOCKAPI_ENDPOINT);
+        const data = await response.json();
+
+        const esisteGia = data.some(item => item.Name === inserito || item.name === inserito || item.code === inserito);
+
+        if (esisteGia) {
+            alert("Questo codice è già stato scelto da un altro utente. Per favore, prova a sceglierne un'altra.");
+            btn.innerText = "Registra Codice Pro";
+            btn.disabled = false;
+        } else {
+            // Salva la stringa scelta su MockAPI usando il campo "Name"
+            await fetch(MOCKAPI_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ Name: inserito, createdAt: new Date().toISOString() })
+            });
+
+            alert("Codice registrato con successo! Versione Pro attivata.");
+            location.reload();
+        }
+    } catch (e) {
+        console.error("Errore di connessione a MockAPI:", e);
+        alert("Errore di comunicazione con il server. Riprova tra poco.");
+        btn.innerText = "Registra Codice Pro";
+        btn.disabled = false;
+    }
+}
+</script>
+
+</body>
+</html>
