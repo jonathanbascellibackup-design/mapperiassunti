@@ -244,12 +244,12 @@
         .modal-content h3 { color: #6f42c1; margin-top: 0; }
         .price-tag { font-size: 28px; font-weight: bold; color: #28a745; margin: 15px 0; }
     </style>
-    <!-- Importa il file di configurazione con la chiave Groq (escluso da Git) -->
+    <!-- Importa la chiave Groq protetta da config.js -->
     <script src="config.js"></script>
 </head>
 <body>
 
-    <!-- SCHERMATA DI AUTENTICAZIONE (INTERROGA MOCKAPI) -->
+    <!-- SCHERMATA DI AUTENTICAZIONE -->
     <div id="authOverlay">
         <h2>🔒 Accesso Riservato</h2>
         <p style="font-size: 14px; color: #666;">Inserisci la tua stringa di 15 cifre per accedere a Smart Study Suite:</p>
@@ -335,7 +335,6 @@
     </div>
 
 <script>
-    // Recupera la chiave dal file config.js locale
     const GROQ_API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.GROQ_API_KEY : "";
     const MOCKAPI_ENDPOINT = "https://6ae0e292be3bc8fead980cb6.mockapi.io/api/v1/codes";
     
@@ -343,14 +342,12 @@
     let selectedFile = null;
     let isPro = false;
 
-    // Elementi di Autenticazione
     const authOverlay = document.getElementById('authOverlay');
     const appContainer = document.getElementById('appContainer');
     const secretCodeInput = document.getElementById('secretCodeInput');
     const verifyBtn = document.getElementById('verifyBtn');
     const authError = document.getElementById('authError');
 
-    // Elementi App Principale
     const fileInput = document.getElementById('fileInput');
     const preview = document.getElementById('preview');
     const scanBtn = document.getElementById('scanBtn');
@@ -381,7 +378,7 @@
     const confirmUpgradeBtn = document.getElementById('confirmUpgradeBtn');
     const closeModalBtn = document.getElementById('closeModalBtn');
 
-    // VERIFICA CODICE SCARICANDO L'ARRAY COMPLETO DA MOCKAPI (Evita problemi di query string)
+    // METODO ROBUSTO: Scarica l'elenco completo e confronta in locale (gestisce "Name", "name", ecc.)
     verifyBtn.addEventListener('click', async () => {
         const enteredCode = secretCodeInput.value.trim();
 
@@ -399,10 +396,10 @@
             const data = await response.json();
 
             if (response.ok && Array.isArray(data)) {
-                const trovato = data.some(item => 
-                    (item.Name && item.Name.trim() === enteredCode) || 
-                    (item.name && item.name.trim() === enteredCode)
-                );
+                const trovato = data.some(item => {
+                    const dbName = String(item.Name || item.name || item.code || "").trim();
+                    return dbName === enteredCode;
+                });
 
                 if (trovato) {
                     authOverlay.style.display = 'none';
@@ -436,7 +433,6 @@
         }
     }
 
-    // Gestione UI Piano Pro / Free
     function updatePlanUI() {
         if (isPro) {
             userPlanBadge.textContent = "Piano PRO 🚀";
