@@ -381,7 +381,7 @@
     const confirmUpgradeBtn = document.getElementById('confirmUpgradeBtn');
     const closeModalBtn = document.getElementById('closeModalBtn');
 
-    // VERIFICA CODICE CON MOCKAPI (Interroga il campo "Name")
+    // VERIFICA CODICE SCARICANDO L'ARRAY COMPLETO DA MOCKAPI (Evita problemi di query string)
     verifyBtn.addEventListener('click', async () => {
         const enteredCode = secretCodeInput.value.trim();
 
@@ -395,12 +395,21 @@
         verifyBtn.textContent = "Verifica in corso...";
 
         try {
-            const response = await fetch(`${MOCKAPI_ENDPOINT}?Name=${enteredCode}`);
+            const response = await fetch(MOCKAPI_ENDPOINT);
             const data = await response.json();
 
-            if (response.ok && Array.isArray(data) && data.length > 0) {
-                authOverlay.style.display = 'none';
-                appContainer.style.display = 'block';
+            if (response.ok && Array.isArray(data)) {
+                const trovato = data.some(item => 
+                    (item.Name && item.Name.trim() === enteredCode) || 
+                    (item.name && item.name.trim() === enteredCode)
+                );
+
+                if (trovato) {
+                    authOverlay.style.display = 'none';
+                    appContainer.style.display = 'block';
+                } else {
+                    handleFailedAttempt();
+                }
             } else {
                 handleFailedAttempt();
             }
