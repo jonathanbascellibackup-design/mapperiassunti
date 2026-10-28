@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Study Suite - Accesso Protetto</title>
+    <!-- Tesseract.js per OCR client-side -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <!-- html2pdf.js per esportazione PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 900px;
+            width: 100%;
+            box-sizing: border-box;
+            display: none; /* Nascosto finché non si effettua il login */
+        }
+
+        /* Schermata di Login */
+        #authOverlay {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        #authOverlay h2 { color: #333; margin-top: 0; }
+        .auth-input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            text-align: center;
+            letter-spacing: 2px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            margin: 15px 0;
+        }
+        .error-msg { color: #dc3545; font-size: 13px; margin-top: 10px; display: none; }
+
+        .header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h2 { color: #333; margin: 0; }
+        
+        .badge-free { background-color: #6c757d; color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .badge-pro { background-color: #ffc107; color: #333; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; }
+
+        .section-box {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .section-box h3 { margin-top: 0; color: #007bff; font-size: 16px; }
+
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin: 5px 0;
+            display: inline-block;
+        }
+        .btn:hover { background-color: #45a049; }
+        .btn-scan { background-color: #ff9800; }
+        .btn-scan:hover { background-color: #e68900; }
+        
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .btn-action-main {
+            flex: 1;
+            padding: 12px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+            position: relative;
+        }
+        .btn-summarize { background-color: #007bff; }
+        .btn-summarize:hover { background-color: #0056b3; }
+        
+        .btn-pro-locked { background-color: #e0e0e0; color: #888; cursor: not-allowed; }
+        .btn-pro-active { background-color: #6f42c1; cursor: pointer; }
+        .btn-pro-active:hover { background-color: #593196; }
+
+        .pro-tag {
+            background: #ff4757;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            font-weight: bold;
+        }
+
+        .btn-action {
+            background-color: #6c757d;
+            padding: 8px 16px;
+            font-size: 13px;
+            margin-right: 8px;
+        }
+        .btn-copy { background-color: #17a2b8; }
+        .btn-pdf { background-color: #dc3545; }
+
+        input[type="file"] { display: none; }
+        
+        #preview {
+            max-width: 100%;
+            max-height: 150px;
+            margin: 10px auto;
+            border-radius: 6px;
+            display: block;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-family: inherit;
+            font-size: 14px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+        textarea:focus { outline: none; border-color: #007bff; }
+
+        .loading {
+            margin-top: 10px;
+            color: #666;
+            font-style: italic;
+            font-size: 14px;
+            display: none;
+            text-align: center;
+        }
+
+        .result-box {
+            background: #eef6ff;
+            border: 1px solid #b6d4fe;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            color: #333;
+        }
+        .result-box h4 { margin: 0 0 10px 0; color: #004085; }
+
+        .action-bar {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed #b6d4fe;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .map-root { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .map-main-node { background: #17a2b8; color: white; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 16px; text-align: center; width: 100%; box-sizing: border-box;}
+        .map-branches { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; width: 100%; }
+        .map-branch-card { background: #f8f9fa; border: 2px solid #bee5eb; border-radius: 8px; padding: 12px; flex: 1 1 200px; max-width: 280px; box-sizing: border-box; }
+        .map-branch-title { color: #0c5460; font-weight: bold; font-size: 14px; border-bottom: 2px solid #bee5eb; padding-bottom: 5px; margin-bottom: 8px; text-align: center; }
+        .map-subnodes { list-style-type: none; padding-left: 0; margin: 0; }
+        .map-subnodes li { background: white; border: 1px solid #e0e0e0; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; font-size: 13px; color: #333; }
+
+        #svgMapContainer {
+            background: #ffffff;
+            border: 1px solid #ce93d8;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 15px;
+            overflow-x: auto;
+            text-align: center;
+        }
+        svg { max-width: 100%; height: auto; }
+
+        .node-text-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            width: 100%;
+            height: 100%;
+            padding: 4px;
+            box-sizing: border-box;
+            word-break: break-word;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            line-height: 1.15;
+        }
+
+        #upgradeModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+        .modal-content h3 { color: #6f42c1; margin-top: 0; }
+        .price-tag { font-size: 28px; font-weight: bold; color: #28a745; margin: 15px 0; }
+    </style>
+    <!-- Importa il file di configurazione con la chiave Groq (escluso da Git) -->
+    <script src="config.js"></script>
+</head>
+<body>
+
+    <!-- SCHERMATA DI AUTENTICAZIONE (INTERROGA MOCKAPI) -->
+    <div id="authOverlay">
+        <h2>🔒 Accesso Riservato</h2>
+        <p style="font-size: 14px; color: #666;">Inserisci la tua stringa di 15 cifre per accedere a Smart Study Suite:</p>
+        <input type="text" id="secretCodeInput" class="auth-input" maxlength="15" placeholder="15 cifre..." />
+        <button id="verifyBtn" class="btn" style="width: 100%; padding: 12px; font-size: 15px;">Verifica Codice</button>
+        <div id="authError" class="error-msg">Codice errato. Tentativi rimasti: 3</div>
+    </div>
+
+    <!-- APPLICAZIONE PRINCIPALE -->
+    <div class="container" id="appContainer">
+        <div class="header-flex">
+            <h2>🚀 Smart Study Suite</h2>
+            <div>
+                <span id="userPlanBadge" class="badge-free">Piano FREE</span>
+                <button id="togglePlanBtn" class="btn" style="padding: 4px 10px; font-size: 11px; margin-left: 5px;">Passa a PRO</button>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3>Opzione A: Importa immagine dal dispositivo</h3>
+            <label for="fileInput" class="btn">📁 Scegli Immagine</label>
+            <input type="file" id="fileInput" accept="image/*">
+            <div><img id="preview" alt="Anteprima" style="display:none;"></div>
+            <button id="scanBtn" class="btn btn-scan" style="display:none;">🔍 Scannerizza Testo</button>
+            <div id="loadingOCR" class="loading">Estrazione del testo in corso... ⏳</div>
+        </div>
+
+        <div class="section-box">
+            <h3>Opzione B: Incolla immagine dagli appunti</h3>
+            <button id="pasteImgBtn" class="btn">📋 Incolla Immagine qui</button>
+            <div style="font-size: 13px; color: #666; margin-top: 5px;">(Oppure clicca sotto e incolla direttamente)</div>
+        </div>
+
+        <div class="section-box" style="background: #fff;">
+            <h3>📝 Testo di Origine (Modificabile)</h3>
+            <textarea id="editableText" placeholder="Testo scannerizzato o incollato qui..."></textarea>
+            
+            <div class="btn-group">
+                <button id="summarizeBtn" class="btn-action-main btn-summarize">✨ Riassunto</button>
+                <button id="schemaBtn" class="btn-action-main btn-pro-locked">📋 Schema <span class="pro-tag">PRO</span></button>
+                <button id="mapBtn" class="btn-action-main btn-pro-locked">🗺️ Mappa <span class="pro-tag">PRO</span></button>
+            </div>
+            
+            <div id="loadingProcess" class="loading">L'IA sta elaborando la richiesta... 🤖</div>
+        </div>
+
+        <div class="result-box" id="summaryContainer" style="display:none;">
+            <h4>✨ Riassunto Generato:</h4>
+            <div id="outputSummary" style="white-space: pre-wrap;"></div>
+            <div class="action-bar">
+                <button id="copyBtn" class="btn btn-action btn-copy">📋 Copia</button>
+                <button id="pdfBtn" class="btn btn-action btn-pdf">📄 PDF Riassunto</button>
+            </div>
+        </div>
+
+        <div class="result-box" id="schemaContainer" style="display:none; background: #e8f4f8; border-color: #bee5eb;">
+            <h4 style="color: #0c5460;">📋 Schema Strutturato:</h4>
+            <div id="schemaPreviewContainer"></div>
+            <div class="action-bar" style="border-top-color: #bee5eb;">
+                <button id="downloadSchemaPdfBtn" class="btn btn-action btn-pdf">📄 PDF Schema</button>
+            </div>
+        </div>
+
+        <div class="result-box" id="mapContainer" style="display:none; background: #f3e5f5; border-color: #ce93d8;">
+            <h4 style="color: #4a148c;">🗺️ Mappa Concettuale Strutturata:</h4>
+            <div id="svgMapContainer"></div>
+            <div class="action-bar" style="border-top-color: #ce93d8;">
+                <button id="downloadMapPdfBtn" class="btn btn-action btn-pdf">📄 PDF Mappa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE UPGRADE PRO -->
+    <div id="upgradeModal">
+        <div class="modal-content">
+            <h3>🚀 Passa a Smart Study PRO</h3>
+            <p>Sblocca gli <b>Schemi strutturati</b> e le <b>Mappe Concettuali vettoriali con frecce</b> per studiare senza limiti.</p>
+            <div class="price-tag">€2,99 <span style="font-size: 14px; color: #666;">/ mese</span></div>
+            <button id="confirmUpgradeBtn" class="btn" style="background-color: #6f42c1; width: 100%; padding: 12px; font-size: 16px;">Attiva Subito PRO</button>
+            <br><br>
+            <button id="closeModalBtn" class="btn" style="background-color: #6c757d; width: 100%;">Annulla</button>
+        </div>
+    </div>
+
+<script>
+    // Recupera la chiave dal file config.js locale
+    const GROQ_API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.GROQ_API_KEY : "";
+    const MOCKAPI_ENDPOINT = "https://6ae0e292be3bc8fead980cb6.mockapi.io/api/v1/codes";
+    
+    let attemptsLeft = 3;
+    let selectedFile = null;
+    let isPro = false;
+
+    // Elementi di Autenticazione
+    const authOverlay = document.getElementById('authOverlay');
+    const appContainer = document.getElementById('appContainer');
+    const secretCodeInput = document.getElementById('secretCodeInput');
+    const verifyBtn = document.getElementById('verifyBtn');
+    const authError = document.getElementById('authError');
+
+    // Elementi App Principale
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('preview');
+    const scanBtn = document.getElementById('scanBtn');
+    const loadingOCR = document.getElementById('loadingOCR');
+    const pasteImgBtn = document.getElementById('pasteImgBtn');
+    const editableText = document.getElementById('editableText');
+    const summarizeBtn = document.getElementById('summarizeBtn');
+    const schemaBtn = document.getElementById('schemaBtn');
+    const mapBtn = document.getElementById('mapBtn');
+    const loadingProcess = document.getElementById('loadingProcess');
+    
+    const summaryContainer = document.getElementById('summaryContainer');
+    const outputSummary = document.getElementById('outputSummary');
+    const copyBtn = document.getElementById('copyBtn');
+    const pdfBtn = document.getElementById('pdfBtn');
+
+    const schemaContainer = document.getElementById('schemaContainer');
+    const schemaPreviewContainer = document.getElementById('schemaPreviewContainer');
+    const downloadSchemaPdfBtn = document.getElementById('downloadSchemaPdfBtn');
+
+    const mapContainer = document.getElementById('mapContainer');
+    const svgMapContainer = document.getElementById('svgMapContainer');
+    const downloadMapPdfBtn = document.getElementById('downloadMapPdfBtn');
+
+    const userPlanBadge = document.getElementById('userPlanBadge');
+    const togglePlanBtn = document.getElementById('togglePlanBtn');
+    const upgradeModal = document.getElementById('upgradeModal');
+    const confirmUpgradeBtn = document.getElementById('confirmUpgradeBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+
+    // VERIFICA CODICE CON MOCKAPI (Interroga il campo "Name")
+    verifyBtn.addEventListener('click', async () => {
+        const enteredCode = secretCodeInput.value.trim();
+
+        if (enteredCode.length !== 15) {
+            authError.style.display = 'block';
+            authError.textContent = "Il codice deve essere esattamente di 15 cifre.";
+            return;
+        }
+
+        verifyBtn.disabled = true;
+        verifyBtn.textContent = "Verifica in corso...";
+
+        try {
+            const response = await fetch(`${MOCKAPI_ENDPOINT}?Name=${enteredCode}`);
+            const data = await response.json();
+
+            if (response.ok && Array.isArray(data) && data.length > 0) {
+                authOverlay.style.display = 'none';
+                appContainer.style.display = 'block';
+            } else {
+                handleFailedAttempt();
+            }
+        } catch (err) {
+            console.warn("Errore di connessione a MockAPI:", err);
+            handleFailedAttempt();
+        } finally {
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = "Verifica Codice";
+        }
+    });
+
+    function handleFailedAttempt() {
+        attemptsLeft--;
+        authError.style.display = 'block';
+
+        if (attemptsLeft > 0) {
+            authError.textContent = `Codice errato. Tentativi rimasti: ${attemptsLeft}`;
+        } else {
+            authError.textContent = "Accesso bloccato per troppi tentativi errati.";
+            secretCodeInput.disabled = true;
+            verifyBtn.disabled = true;
+            verifyBtn.style.backgroundColor = "#ccc";
+        }
+    }
+
+    // Gestione UI Piano Pro / Free
+    function updatePlanUI() {
+        if (isPro) {
+            userPlanBadge.textContent = "Piano PRO 🚀";
+            userPlanBadge.className = "badge-pro";
+            togglePlanBtn.textContent = "Torna a FREE";
+            
+            schemaBtn.className = "btn-action-main btn-pro-active";
+            mapBtn.className = "btn-action-main btn-pro-active";
+            schemaBtn.querySelector('.pro-tag').style.display = 'none';
+            mapBtn.querySelector('.pro-tag').style.display = 'none';
+        } else {
+            userPlanBadge.textContent = "Piano FREE";
+            userPlanBadge.className = "badge-free";
+            togglePlanBtn.textContent = "Passa a PRO (2,99€)";
+            
+            schemaBtn.className = "btn-action-main btn-pro-locked";
+            mapBtn.className = "btn-action-main btn-pro-locked";
+            if(schemaBtn.querySelector('.pro-tag')) schemaBtn.querySelector('.pro-tag').style.display = 'inline';
+            if(mapBtn.querySelector('.pro-tag')) mapBtn.querySelector('.pro-tag').style.display = 'inline';
+        }
+    }
+
+    togglePlanBtn.addEventListener('click', () => {
+        if (!isPro) {
+            upgradeModal.style.display = 'flex';
+        } else {
+            isPro = false;
+            updatePlanUI();
+            alert("Sei tornato al piano Free.");
+        }
+    });
+
+    closeModalBtn.addEventListener('click', () => { upgradeModal.style.display = 'none'; });
+    confirmUpgradeBtn.addEventListener('click', () => {
+        isPro = true;
+        updatePlanUI();
+        upgradeModal.style.display = 'none';
+        alert("🎉 Abbonamento PRO attivato con successo!");
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        selectedFile = e.target.files[0];
+        if (!selectedFile) return;
+        preview.src = URL.createObjectURL(selectedFile);
+        preview.style.display = 'block';
+        scanBtn.style.display = 'inline-block';
+    });
+
+    scanBtn.addEventListener('click', async () => {
+        if (!selectedFile) return;
+        loadingOCR.style.display = 'block';
+        scanBtn.disabled = true;
+        try {
+            const result = await Tesseract.recognize(selectedFile, 'ita+eng');
+            editableText.value = result.data.text.trim() || "Nessun testo trovato.";
+        } catch (err) { alert("Errore OCR."); }
+        finally { loadingOCR.style.display = 'none'; scanBtn.disabled = false; }
+    });
+
+    async function handleImageBlob(blob) {
+        selectedFile = blob;
+        preview.src = URL.createObjectURL(blob);
+        preview.style.display = 'block';
+        loadingOCR.style.display = 'block';
+        try {
+            const result = await Tesseract.recognize(blob, 'ita+eng');
+            editableText.value = result.data.text.trim();
+        } catch (err) { console.error(err); }
+        finally { loadingOCR.style.display = 'none'; }
+    }
+
+    pasteImgBtn.addEventListener('click', async () => {
+        try {
+            const items = await navigator.clipboard.read();
+            for (const item of items) {
+                for (const type of item.types) {
+                    if (type.startsWith('image/')) {
+                        handleImageBlob(await item.getType(type));
+                        return;
+                    }
+                }
+            }
+            alert("Nessuna immagine negli appunti.");
+        } catch (err) { editableText.focus(); }
+    });
+
+    window.addEventListener('paste', (e) => {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                handleImageBlob(items[i].getAsFile());
+                return;
+            }
+        }
+    });
+
+    async function fetchModelResponse(systemPrompt, userPrompt) {
+        const models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"];
+        for (const model of models) {
+            try {
+                const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+                        temperature: 0.1
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.choices && data.choices.length > 0) return data.choices[0].message.content;
+            } catch (err) { console.warn(`Fallback da ${model}`); }
+        }
+        throw new Error("Server occupati.");
+    }
+
+    function hideAllContainers() {
+        summaryContainer.style.display = 'none';
+        schemaContainer.style.display = 'none';
+        mapContainer.style.display = 'none';
+    }
+
+    summarizeBtn.addEventListener('click', async () => {
+        const text = editableText.value.trim();
+        if (!text) { alert("Inserisci del testo!"); return; }
+        loadingProcess.style.display = 'block'; hideAllContainers();
+        try {
+            const res = await fetchModelResponse("Sei un assistente accademico. Crea un riassunto sintetico.", `Riassumi:\n\n${text}`);
+            outputSummary.textContent = res;
+            summaryContainer.style.display = 'block';
+        } catch (e) { alert("Errore riassunto."); }
+        finally { loadingProcess.style.display = 'none'; }
+    });
+
+    schemaBtn.addEventListener('click', async () => {
+        if (!isPro) { upgradeModal.style.display = 'flex'; return; }
+
+        const text = editableText.value.trim();
+        if (!text) { alert("Inserisci del testo!"); return; }
+        loadingProcess.style.display = 'block'; hideAllContainers();
+        
+        const prompt = `Estrai uno schema in formato JSON puro (senza markdown):\n{\n  "titolo": "Titolo",\n  "rami": [\n    {\n      "categoria": "Area",\n      "punti": ["punto 1", "punto 2"]\n    }\n  ]\n}`;
+        try {
+            let jsonStr = await fetchModelResponse("Sei un estrattore JSON.", `${prompt}\n\nTesto:\n${text}`);
+            jsonStr = jsonStr.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const data = JSON.parse(jsonStr);
+
+            let html = `<div class="map-root"><div class="map-main-node">📌 ${data.titolo}</div><div class="map-branches">`;
+            data.rami.forEach(r => {
+                html += `<div class="map-branch-card"><div class="map-branch-title">${r.categoria}</div><ul class="map-subnodes">`;
+                r.punti.forEach(p => html += `<li>🔹 ${p}</li>`);
+                html += `</ul></div>`;
+            });
+            html += `</div></div>`;
+            schemaPreviewContainer.innerHTML = html;
+            schemaContainer.style.display = 'block';
+        } catch (e) { alert("Errore generazione schema."); }
+        finally { loadingProcess.style.display = 'none'; }
+    });
+
+    function createNodeHTML(x, y, w, h, text, bg, border, textColor = "#333", bold = false) {
+        let fontSize = 11;
+        if (text.length > 50) fontSize = 9;
+        if (text.length > 100) fontSize = 8;
+
+        return `
+            <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${bg}" stroke="${border}" stroke-width="1.5"/>
+            <foreignObject x="${x}" y="${y}" width="${w}" height="${h}">
+                <div xmlns="http://www.w3.org/1999/xhtml" class="node-text-box" style="color: ${textColor}; font-size: ${fontSize}px; font-weight: ${bold ? 'bold' : 'normal'};">
+                    ${text}
+                </div>
+            </foreignObject>
+        `;
+    }
+
+    mapBtn.addEventListener('click', async () => {
+        if (!isPro) { upgradeModal.style.display = 'flex'; return; }
+
+        const text = editableText.value.trim();
+        if (!text) { alert("Inserisci del testo!"); return; }
+        loadingProcess.style.display = 'block'; hideAllContainers();
+
+        const prompt = `Crea una mappa concettuale gerarchica e relazionale in formato JSON puro (senza markdown).
+La struttura deve avere un nodo centrale principale e un array di "rami". Ciascun ramo ha una categoria e una lista di "sotto_concetti".
+Formato JSON rigoroso:
+{
+  "centro": "Tema Centrale",
+  "rami": [
+    {
+      "categoria": "Ramo 1",
+      "relazione": "include",
+      "sotto_concetti": ["Testo descrittivo...", "Secondo concetto..."]
+    }
+  ]
+}`;
+        
+        try {
+            let jsonStr = await fetchModelResponse("Sei un esperto di mappe concettuali strutturate ad albero.", `${prompt}\n\nTesto:\n${text}`);
+            jsonStr = jsonStr.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const mapData = JSON.parse(jsonStr);
+
+            let rami = mapData.rami || [];
+            let totalRami = rami.length;
+
+            let maxSubNodi = 1;
+            rami.forEach(r => {
+                if (r.sotto_concetti && r.sotto_concetti.length > maxSubNodi) {
+                    maxSubNodi = r.sotto_concetti.length;
+                }
+            });
+
+            let svgWidth = Math.max(900, totalRami * 230);
+            let svgHeight = Math.max(650, 320 + (maxSubNodi * 75));
+            let cx = svgWidth / 2;
+            let cy = 50;
+
+            let svgHtml = `<svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="${Math.min(600, svgHeight)}px" xmlns="http://www.w3.org/2000/svg">`;
+            svgHtml += `<defs><marker id="arrow" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6f42c1"/></marker></defs>`;
+
+            let cW = 260, cH = 55;
+            svgHtml += createNodeHTML(cx - cW/2, cy, cW, cH, mapData.centro || "Argomento", "#6f42c1", "#4a148c", "white", true);
+
+            let branchWidth = svgWidth / totalRami;
+
+            rami.forEach((ramo, index) => {
+                let rx = branchWidth * index + branchWidth / 2;
+                let ry = 200;
+
+                svgHtml += `<line x1="${cx}" y1="${cy + cH}" x2="${rx}" y2="${ry}" stroke="#ce93d8" stroke-width="2.5" marker-end="url(#arrow)"/>`;
+                
+                let midX = (cx + rx) / 2;
+                let midY = (cy + cH + ry) / 2;
+                let relText = ramo.relazione || "collega";
+                svgHtml += `<rect x="${midX - 30}" y="${midY - 10}" width="60" height="18" rx="4" fill="white" stroke="#ce93d8" stroke-width="1"/>`;
+                svgHtml += `<text x="${midX}" y="${midY + 3}" font-size="10" fill="#4a148c" font-weight="bold" text-anchor="middle">${relText}</text>`;
+
+                let rW = 190, rH = 50;
+                svgHtml += createNodeHTML(rx - rW/2, ry, rW, rH, ramo.categoria, "#e1bee7", "#6f42c1", "#4a148c", true);
+
+                let subNodi = ramo.sotto_concetti || [];
+                let subStartY = ry + rH + 35;
+                
+                subNodi.forEach((sub, subIndex) => {
+                    let subY = subStartY + (subIndex * 70);
+                    let sW = 180, sH = 50;
+
+                    let prevBottomY = (subIndex === 0) ? (ry + rH) : (subStartY + ((subIndex - 1) * 70) + sH);
+                    svgHtml += `<line x1="${rx}" y1="${prevBottomY}" x2="${rx}" y2="${subY}" stroke="#ce93d8" stroke-width="2" marker-end="url(#arrow)"/>`;
+
+                    svgHtml += createNodeHTML(rx - sW/2, subY, sW, sH, sub, "#ffffff", "#6f42c1", "#333", false);
+                });
+            });
+
+            svgHtml += `</svg>`;
+
+            svgMapContainer.innerHTML = svgHtml;
+            mapContainer.style.display = 'block';
+        } catch (e) {
+            console.error(e);
+            alert("Errore durante la generazione della mappa concettuale strutturata.");
+        } finally {
+            loadingProcess.style.display = 'none';
+        }
+    });
+
+    copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(outputSummary.textContent).then(() => {
+            copyBtn.textContent = "✅ Copiato!";
+            setTimeout(() => copyBtn.textContent = "📋 Copia", 2000);
+        });
+    });
+
+    pdfBtn.addEventListener('click', () => {
+        const el = document.createElement('div');
+        el.style.padding = '20px';
+        el.innerHTML = `<h2>📖 Riassunto</h2><p style="white-space: pre-wrap;">${outputSummary.textContent}</p>`;
+        html2pdf().set({ margin: 15, filename: 'Riassunto.pdf' }).from(el).save();
+    });
+
+    downloadSchemaPdfBtn.addEventListener('click', () => {
+        html2pdf().set({ margin: 10, filename: 'Schema.pdf', html2canvas: { scale: 2 } }).from(schemaPreviewContainer).save();
+    });
+
+    downloadMapPdfBtn.addEventListener('click', () => {
+        html2pdf().set({ margin: 10, filename: 'Mappa_Strutturata.pdf', html2canvas: { scale: 2 } }).from(svgMapContainer).save();
+    });
+
+    updatePlanUI();
+</script>
+
+</body>
+</html>
