@@ -28,7 +28,7 @@
             max-width: 900px;
             width: 100%;
             box-sizing: border-box;
-            display: none; /* Nascosto finché non si effettua il login */
+            display: none;
         }
 
         /* Schermata di Login */
@@ -336,7 +336,9 @@
 
 <script>
     const GROQ_API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.GROQ_API_KEY : "";
-    const MOCKAPI_ENDPOINT = "https://6ae0e292be3bc8fead980cb6.mockapi.io/api/v1/codes";
+    
+    // Il tuo endpoint npoint.io aggiornato e funzionante
+    const JSON_ENDPOINT = "https://api.npoint.io/9fc401366189bee3cc82";
     
     let attemptsLeft = 3;
     let selectedFile = null;
@@ -378,7 +380,7 @@
     const confirmUpgradeBtn = document.getElementById('confirmUpgradeBtn');
     const closeModalBtn = document.getElementById('closeModalBtn');
 
-    // VERIFICA CODICE CON CONTROLLO FLESSIBILE SU TUTTE LE PROPRIETÀ DEL JSON
+    // VERIFICA DEL CODICE SUL JSON STABILE
     verifyBtn.addEventListener('click', async () => {
         const enteredCode = secretCodeInput.value.trim();
 
@@ -392,13 +394,15 @@
         verifyBtn.textContent = "Verifica in corso...";
 
         try {
-            const response = await fetch(MOCKAPI_ENDPOINT);
+            const response = await fetch(JSON_ENDPOINT);
             const data = await response.json();
 
-            if (response.ok && Array.isArray(data)) {
-                const trovato = data.some(item => {
-                    // Controlla qualsiasi campo possibile del database (Name, name, code, text, id, ecc.)
-                    const dbName = String(item.Name || item.name || item.code || item.text || item.id || "").trim();
+            // Supporta sia un array diretto che un oggetto con chiave "codes"
+            const codesArray = Array.isArray(data) ? data : (data.codes || []);
+
+            if (response.ok && Array.isArray(codesArray)) {
+                const trovato = codesArray.some(item => {
+                    const dbName = String(item.code || item.Name || item.name || "").trim();
                     return dbName === enteredCode;
                 });
 
@@ -412,7 +416,7 @@
                 handleFailedAttempt();
             }
         } catch (err) {
-            console.warn("Errore di connessione a MockAPI:", err);
+            console.warn("Errore di connessione al database JSON:", err);
             handleFailedAttempt();
         } finally {
             verifyBtn.disabled = false;
