@@ -378,7 +378,7 @@
     const confirmUpgradeBtn = document.getElementById('confirmUpgradeBtn');
     const closeModalBtn = document.getElementById('closeModalBtn');
 
-    // METODO ROBUSTO: Scarica l'elenco completo e confronta in locale (gestisce "Name", "name", ecc.)
+    // VERIFICA CODICE CON CONTROLLO FLESSIBILE SU TUTTE LE PROPRIETÀ DEL JSON
     verifyBtn.addEventListener('click', async () => {
         const enteredCode = secretCodeInput.value.trim();
 
@@ -397,7 +397,8 @@
 
             if (response.ok && Array.isArray(data)) {
                 const trovato = data.some(item => {
-                    const dbName = String(item.Name || item.name || item.code || "").trim();
+                    // Controlla qualsiasi campo possibile del database (Name, name, code, text, id, ecc.)
+                    const dbName = String(item.Name || item.name || item.code || item.text || item.id || "").trim();
                     return dbName === enteredCode;
                 });
 
