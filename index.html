@@ -720,7 +720,7 @@
         if (!text) { alert("Inserisci del testo!"); return; }
         loadingProcess.style.display = 'block'; hideAllContainers();
         try {
-            const res = await fetchModelResponse("Sei un assistente accademico. Crea un riassunto sintetico.", `Riassumi:\n\n${text}`);
+            const res = await fetchModelResponse("Sei un assistente accademico. Crea un riassunto sintetico, non puoi usare più della metà dei token inviati. È obbligatorio limitare l'uso di caratteri speciali, puoi usare solo segni di punteggiatura e virgolette ma non segni strani che possano rendere meno comprensibile il riassunto.", `Riassumi:\n\n${text}`);
             outputSummary.textContent = res;
             summaryContainer.style.display = 'block';
         } catch (e) { alert("Errore riassunto."); }
