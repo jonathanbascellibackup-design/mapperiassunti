@@ -1,3 +1,3 @@
 const CONFIG = {
-    GROQ_API_KEY: "LA_TUA_CHIAVE_GROQ_IN_CHIARO"
+    GROQ_API_KEY: ""
 };
