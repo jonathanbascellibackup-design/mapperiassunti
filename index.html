@@ -230,8 +230,10 @@
         .btn-crypto:hover { background: #e08213; }
         .btn-secondary { background: #6c757d; color: #fff; border: none; }
         .btn-secondary:hover { background: #5a6268; }
+        .btn-code { background: #6f42c1; color: white; }
+        .btn-code:hover { background: #593196; }
 
-        #options-container, #payment-details, #activation-section { display: none; margin-top: 15px; text-align: left; }
+        #options-container, #payment-details, #activation-section, #code-input-section { display: none; margin-top: 15px; text-align: left; }
         .crypto-address { background: #f8f9fa; padding: 10px; border-radius: 6px; font-family: monospace; word-break: break-all; margin: 10px 0; border: 1px solid #ccc; color: #0056b3; font-size: 12px; }
         #status { margin-top: 10px; font-weight: bold; color: #e08213; font-size: 13px; text-align: center; }
 
@@ -248,7 +250,6 @@
         }
         .warning-text { font-size: 12px; color: #dc3545; margin-top: 4px; line-height: 1.4; }
 
-        /* IFRAME WIDGET CHANG_ELLY */
         #onramp-frame { width: 100%; height: 380px; border: none; border-radius: 8px; margin-top: 10px; }
     </style>
     <!-- Importa la chiave Groq protetta da config.js -->
@@ -320,7 +321,7 @@
         </div>
     </div>
 
-    <!-- MODALE UPGRADE PRO CON OPZIONI DI PAGAMENTO E ATTIVAZIONE -->
+    <!-- MODALE UPGRADE PRO CON OPZIONI DI PAGAMENTO E INSERIMENTO CODICE -->
     <div id="upgradeModal">
         <div class="modal-content">
             <button class="close-btn" onclick="chiudiModalUpgrade()">×</button>
@@ -331,10 +332,20 @@
             <!-- TASTO PRINCIPALE ACQUISTA -->
             <button id="main-buy-btn" class="btn-crypto" onclick="apriOpzioni()">Acquista PRO a 2.99€</button>
 
-            <!-- MENU OPZIONI DI PAGAMENTO -->
+            <!-- MENU OPZIONI DI PAGAMENTO + INSERISCI CODICE -->
             <div id="options-container">
                 <button class="btn-crypto" onclick="inviaInBtc()">Paga ora in BTC</button>
                 <button class="btn-crypto btn-secondary" onclick="apriWidgetCompra()">Non ho BTC (Compra al volo)</button>
+                <button class="btn-crypto btn-code" onclick="mostraSezioneCodiceDiretto()">Ho già un codice a 15 cifre</button>
+            </div>
+
+            <!-- SEZIONE INSERIMENTO DIRETTO CODICE PRO -->
+            <div id="code-input-section">
+                <h4 style="color: #6f42c1; margin: 5px 0;">Inserisci Codice Pro</h4>
+                <p style="font-size: 13px;">Digita il tuo codice di attivazione:</p>
+                <input type="text" id="direct-code-input" class="auth-input" placeholder="15 cifre..." maxlength="15" oninput="validaLunghezzaDiretta()">
+                <div id="direct-input-error" class="warning-text"></div>
+                <button class="btn-crypto btn-code" id="verify-direct-code-btn" style="margin-top: 10px;" onclick="verificaCodiceDiretto()" disabled>Verifica e Attiva PRO</button>
             </div>
 
             <!-- DETTAGLI PAGAMENTO IN BITCOIN -->
@@ -345,7 +356,7 @@
                 <div id="status">In attesa della transazione sulla Blockchain...</div>
             </div>
 
-            <!-- SEZIONE ATTIVAZIONE CODICE DOPO PAGAMENTO -->
+            <!-- SEZIONE ATTIVAZIONE CODICE DOPO PAGAMENTO BLOCKCHAIN -->
             <div id="activation-section">
                 <h4 style="color: #28a745; margin: 5px 0;">Pagamento Rilevato!</h4>
                 <p style="font-size: 13px;">Inserisci il tuo codice (minimo 15 caratteri) per registrare l'attivazione:</p>
@@ -446,14 +457,73 @@
         document.getElementById('options-container').style.display = 'none';
         document.getElementById('payment-details').style.display = 'none';
         document.getElementById('activation-section').style.display = 'none';
+        document.getElementById('code-input-section').style.display = 'none';
         document.getElementById('onramp-frame').style.display = 'none';
         document.getElementById('onramp-frame').src = '';
+        document.getElementById('direct-code-input').value = '';
     }
 
     // --- FUNZIONI DI GESTIONE PAGAMENTO / OPZIONI ---
     function apriOpzioni() {
         document.getElementById('main-buy-btn').style.display = 'none';
         document.getElementById('options-container').style.display = 'block';
+    }
+
+    function mostraSezioneCodiceDiretto() {
+        document.getElementById('options-container').style.display = 'none';
+        document.getElementById('code-input-section').style.display = 'block';
+    }
+
+    function validaLunghezzaDiretta() {
+        const val = document.getElementById('direct-code-input').value;
+        const errDiv = document.getElementById('direct-input-error');
+        const btn = document.getElementById('verify-direct-code-btn');
+
+        if (val.length < 15) {
+            errDiv.innerText = `Mancano ancora ${15 - val.length} caratteri (minimo 15).`;
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+        } else {
+            errDiv.innerText = "";
+            btn.disabled = false;
+            btn.style.opacity = "1";
+        }
+    }
+
+    async function verificaCodiceDiretto() {
+        const inserito = document.getElementById('direct-code-input').value.trim();
+        const btn = document.getElementById('verify-direct-code-btn');
+
+        btn.innerText = "Verifica...";
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(API_ENDPOINT);
+            const data = await response.json();
+            const items = Array.isArray(data) ? data : (data.codes || data.items || []);
+
+            const trovato = items.some(item => 
+                (item.Name && item.Name === inserito) || 
+                (item.name && item.name === inserito) || 
+                (item.code && item.code === inserito)
+            );
+
+            if (trovato) {
+                isPro = true;
+                updatePlanUI();
+                chiudiModalUpgrade();
+                alert("🎉 Codice verificato! Versione PRO attivata.");
+            } else {
+                alert("Codice errato o non trovato nel database.");
+                btn.innerText = "Verifica e Attiva PRO";
+                btn.disabled = false;
+            }
+        } catch (e) {
+            console.error("Errore di connessione:", e);
+            alert("Errore di connessione con il server.");
+            btn.innerText = "Verifica e Attiva PRO";
+            btn.disabled = false;
+        }
     }
 
     async function inviaInBtc() {
@@ -546,7 +616,7 @@
                         body: JSON.stringify({ Name: inserito, createdAt: new Date().toISOString() })
                     });
                 } catch(postErr) {
-                    console.log("Post non supportato o limitato dal server JSON, procediamo comunque con l'attivazione locale.");
+                    console.log("Post non supportato o limitato dal server JSON, procediamo comunque.");
                 }
 
                 isPro = true;
@@ -556,7 +626,6 @@
             }
         } catch (e) {
             console.error("Errore di connessione all'API:", e);
-            // Fallback locale in caso di errore di rete/mock per consentire l'uso immediato
             isPro = true;
             updatePlanUI();
             chiudiModalUpgrade();
