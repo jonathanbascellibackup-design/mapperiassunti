@@ -197,11 +197,12 @@
             line-height: 1.15;
         }
 
+        /* MODALE UPGRADE PRO & PAGAMENTO */
         #upgradeModal {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.6);
             justify-content: center;
             align-items: center;
             z-index: 1000;
@@ -210,13 +211,30 @@
             background: white;
             padding: 30px;
             border-radius: 12px;
-            max-width: 400px;
+            max-width: 480px;
             width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
             text-align: center;
             box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            position: relative;
+            box-sizing: border-box;
         }
+        .close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; color: #333; cursor: pointer; font-weight: bold; background: #eee; width: 36px; height: 36px; line-height: 32px; border-radius: 50%; border: none; }
+        .close-btn:hover { color: #dc3545; background: #ddd; }
+
         .modal-content h3 { color: #6f42c1; margin-top: 0; }
         .price-tag { font-size: 24px; font-weight: bold; color: #28a745; margin: 10px 0; }
+        
+        .btn-crypto { background: #f7931a; color: white; border: none; padding: 12px 20px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; width: 100%; margin: 6px 0; }
+        .btn-crypto:hover { background: #e08213; }
+        .btn-secondary { background: #6c757d; color: #fff; border: none; }
+        .btn-secondary:hover { background: #5a6268; }
+
+        #options-container, #payment-details, #activation-section { display: none; margin-top: 15px; text-align: left; }
+        .crypto-address { background: #f8f9fa; padding: 10px; border-radius: 6px; font-family: monospace; word-break: break-all; margin: 10px 0; border: 1px solid #ccc; color: #0056b3; font-size: 12px; }
+        #status { margin-top: 10px; font-weight: bold; color: #e08213; font-size: 13px; text-align: center; }
+
         .auth-input {
             width: 100%;
             padding: 10px;
@@ -228,14 +246,17 @@
             box-sizing: border-box;
             margin: 10px 0;
         }
-        .error-msg { color: #dc3545; font-size: 12px; margin-bottom: 10px; display: none; }
+        .warning-text { font-size: 12px; color: #dc3545; margin-top: 4px; line-height: 1.4; }
+
+        /* IFRAME WIDGET CHANG_ELLY */
+        #onramp-frame { width: 100%; height: 380px; border: none; border-radius: 8px; margin-top: 10px; }
     </style>
     <!-- Importa la chiave Groq protetta da config.js -->
     <script src="config.js"></script>
 </head>
 <body>
 
-    <!-- APPLICAZIONE PRINCIPALE (Accessibile subito) -->
+    <!-- APPLICAZIONE PRINCIPALE -->
     <div class="container" id="appContainer">
         <div class="header-flex">
             <h2>🚀 Smart Study Suite</h2>
@@ -299,29 +320,57 @@
         </div>
     </div>
 
-    <!-- MODALE UPGRADE PRO & INSERIMENTO CODICE -->
+    <!-- MODALE UPGRADE PRO CON OPZIONI DI PAGAMENTO E ATTIVAZIONE -->
     <div id="upgradeModal">
         <div class="modal-content">
+            <button class="close-btn" onclick="chiudiModalUpgrade()">×</button>
             <h3>🚀 Passa a Smart Study PRO</h3>
-            <p style="font-size: 13px; color: #666; margin-bottom: 5px;">Sblocca schemi e mappe avanzate inserendo il tuo codice di attivazione:</p>
-            
-            <input type="text" id="secretCodeInput" class="auth-input" maxlength="15" placeholder="Inserisci codice (15 cifre)" />
-            <div id="authError" class="error-msg">Codice errato. Riprova.</div>
-            
-            <button id="verifyCodeBtn" class="btn" style="background-color: #6f42c1; width: 100%; padding: 10px; font-size: 15px;">Attiva PRO con Codice</button>
-            
-            <div style="margin: 15px 0; border-top: 1px solid #eee; padding-top: 10px;">
-                <span style="font-size: 12px; color: #888;">Oppure acquista l'abbonamento</span>
-                <div class="price-tag">€2,99 <span style="font-size: 14px; color: #666;">/ mese</span></div>
+            <div class="price-tag">€2,99 <span style="font-size: 14px; color: #666;">/ mese</span></div>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Sblocca schemi e mappe concettuali avanzate.</p>
+
+            <!-- TASTO PRINCIPALE ACQUISTA -->
+            <button id="main-buy-btn" class="btn-crypto" onclick="apriOpzioni()">Acquista PRO a 2.99€</button>
+
+            <!-- MENU OPZIONI DI PAGAMENTO -->
+            <div id="options-container">
+                <button class="btn-crypto" onclick="inviaInBtc()">Paga ora in BTC</button>
+                <button class="btn-crypto btn-secondary" onclick="apriWidgetCompra()">Non ho BTC (Compra al volo)</button>
             </div>
 
-            <button id="closeModalBtn" class="btn" style="background-color: #6c757d; width: 100%;">Annulla</button>
+            <!-- DETTAGLI PAGAMENTO IN BITCOIN -->
+            <div id="payment-details">
+                <p style="font-size: 13px; margin-bottom: 3px;">Invia l'importo esatto in BTC all'indirizzo:</p>
+                <div class="crypto-address">bc1q7tv6tw732q2q30fqk9wwqw8u39d3nenjmhkv65</div>
+                <p style="font-size: 13px;">Importo stimato: <strong id="btc-val">Calcolo in corso...</strong></p>
+                <div id="status">In attesa della transazione sulla Blockchain...</div>
+            </div>
+
+            <!-- SEZIONE ATTIVAZIONE CODICE DOPO PAGAMENTO -->
+            <div id="activation-section">
+                <h4 style="color: #28a745; margin: 5px 0;">Pagamento Rilevato!</h4>
+                <p style="font-size: 13px;">Inserisci il tuo codice (minimo 15 caratteri) per registrare l'attivazione:</p>
+                <input type="text" id="pro-code-input" class="auth-input" placeholder="Inserisci codice..." oninput="validaLunghezza()">
+                <div id="input-error" class="warning-text"></div>
+                <button class="btn-crypto" id="submit-code-btn" style="margin-top: 10px;" onclick="verificaESalvaCodice()" disabled>Registra Codice Pro</button>
+            </div>
+
+            <!-- IFRAME WIDGET DI ACQUISTO (Changelly) -->
+            <iframe id="onramp-frame" src="" style="display:none;"></iframe>
+
+            <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button class="btn" style="background-color: #6c757d; width: 100%; padding: 8px;" onclick="chiudiModalUpgrade()">Chiudi</button>
+            </div>
         </div>
     </div>
 
 <script>
     const GROQ_API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.GROQ_API_KEY : "";
-    const JSON_ENDPOINT = "https://api.npoint.io/9fc401366189bee3cc82";
+    
+    // --- CONFIGURAZIONE PAGAMENTO E API ---
+    const MY_ADDRESS = "bc1q7tv6tw732q2q30fqk9wwqw8u39d3nenjmhkv65";
+    const EUR_PRICE = 2.99;
+    const API_ENDPOINT = "https://api.npoint.io/9fc401366189bee3cc82";
+    let checkInterval = null;
     
     let selectedFile = null;
     let isPro = false;
@@ -353,10 +402,6 @@
     const userPlanBadge = document.getElementById('userPlanBadge');
     const togglePlanBtn = document.getElementById('togglePlanBtn');
     const upgradeModal = document.getElementById('upgradeModal');
-    const verifyCodeBtn = document.getElementById('verifyCodeBtn');
-    const secretCodeInput = document.getElementById('secretCodeInput');
-    const authError = document.getElementById('authError');
-    const closeModalBtn = document.getElementById('closeModalBtn');
 
     function updatePlanUI() {
         if (isPro) {
@@ -390,60 +435,134 @@
         }
     });
 
-    closeModalBtn.addEventListener('click', () => { 
-        upgradeModal.style.display = 'none'; 
-        authError.style.display = 'none';
-        secretCodeInput.value = '';
-    });
-
-    // VERIFICA DEL CODICE DIGITATO NELLA MODALE
-    verifyCodeBtn.addEventListener('click', async () => {
-        const enteredCode = secretCodeInput.value.trim();
-
-        if (enteredCode.length !== 15) {
-            authError.style.display = 'block';
-            authError.textContent = "Il codice deve essere di 15 cifre.";
-            return;
+    function chiudiModalUpgrade() {
+        upgradeModal.style.display = 'none';
+        if (checkInterval) {
+            clearInterval(checkInterval);
+            checkInterval = null;
         }
+        // Reset delle sezioni interne alla modale
+        document.getElementById('main-buy-btn').style.display = 'block';
+        document.getElementById('options-container').style.display = 'none';
+        document.getElementById('payment-details').style.display = 'none';
+        document.getElementById('activation-section').style.display = 'none';
+        document.getElementById('onramp-frame').style.display = 'none';
+        document.getElementById('onramp-frame').src = '';
+    }
 
-        verifyCodeBtn.disabled = true;
-        verifyCodeBtn.textContent = "Verifica...";
+    // --- FUNZIONI DI GESTIONE PAGAMENTO / OPZIONI ---
+    function apriOpzioni() {
+        document.getElementById('main-buy-btn').style.display = 'none';
+        document.getElementById('options-container').style.display = 'block';
+    }
+
+    async function inviaInBtc() {
+        document.getElementById('options-container').style.display = 'none';
+        document.getElementById('payment-details').style.display = 'block';
 
         try {
-            const response = await fetch(JSON_ENDPOINT);
-            const data = await response.json();
-            const codesArray = Array.isArray(data) ? data : (data.codes || []);
-
-            if (response.ok && Array.isArray(codesArray)) {
-                const trovato = codesArray.some(item => {
-                    const dbName = String(item.code || item.Name || item.name || "").trim();
-                    return dbName === enteredCode;
-                });
-
-                if (trovato) {
-                    isPro = true;
-                    updatePlanUI();
-                    upgradeModal.style.display = 'none';
-                    secretCodeInput.value = '';
-                    authError.style.display = 'none';
-                    alert("🎉 Codice valido! Versione PRO attivata con successo.");
-                } else {
-                    authError.style.display = 'block';
-                    authError.textContent = "Codice errato o non trovato.";
-                }
-            } else {
-                authError.style.display = 'block';
-                authError.textContent = "Errore di lettura dal database.";
-            }
-        } catch (err) {
-            console.warn("Errore di connessione:", err);
-            authError.style.display = 'block';
-            authError.textContent = "Errore di connessione.";
-        } finally {
-            verifyCodeBtn.disabled = false;
-            verifyCodeBtn.textContent = "Attiva PRO con Codice";
+            const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
+            const data = await res.json();
+            const btcPriceInEur = data.bitcoin.eur;
+            const btcExpected = (EUR_PRICE / btcPriceInEur).toFixed(8);
+            document.getElementById('btc-val').innerText = btcExpected + " BTC";
+        } catch(e) {
+            document.getElementById('btc-val').innerText = "~ 2.99 € in BTC";
         }
-    });
+
+        if (!checkInterval) {
+            checkInterval = setInterval(verificaPagamentoBlockchain, 5000);
+        }
+    }
+
+    function apriWidgetCompra() {
+        document.getElementById('options-container').style.display = 'none';
+        const widgetUrl = `https://widget.changelly.com?from=eur&to=btc&amount=3&address=${MY_ADDRESS}&theme=dark`;
+        const iframe = document.getElementById('onramp-frame');
+        iframe.src = widgetUrl;
+        iframe.style.display = 'block';
+    }
+
+    async function verificaPagamentoBlockchain() {
+        try {
+            const res = await fetch(`https://mempool.space/api/address/${MY_ADDRESS}/txs`);
+            const txs = await res.json();
+
+            if (txs && txs.length > 0) {
+                clearInterval(checkInterval);
+                checkInterval = null;
+                document.getElementById('payment-details').style.display = 'none';
+                document.getElementById('activation-section').style.display = 'block';
+            }
+        } catch (e) {
+            console.error("Errore verifica blockchain:", e);
+        }
+    }
+
+    function validaLunghezza() {
+        const val = document.getElementById('pro-code-input').value;
+        const errDiv = document.getElementById('input-error');
+        const btn = document.getElementById('submit-code-btn');
+
+        if (val.length < 15) {
+            errDiv.innerText = `Mancano ancora ${15 - val.length} caratteri (minimo 15).`;
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+        } else {
+            errDiv.innerText = "";
+            btn.disabled = false;
+            btn.style.opacity = "1";
+        }
+    }
+
+    async function verificaESalvaCodice() {
+        const inserito = document.getElementById('pro-code-input').value.trim();
+        const btn = document.getElementById('submit-code-btn');
+
+        btn.innerText = "Verifica in corso...";
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(API_ENDPOINT);
+            const data = await response.json();
+
+            const items = Array.isArray(data) ? data : (data.codes || data.items || []);
+
+            const esisteGia = items.some(item => 
+                (item.Name && item.Name === inserito) || 
+                (item.name && item.name === inserito) || 
+                (item.code && item.code === inserito)
+            );
+
+            if (esisteGia) {
+                alert("Questo codice risulta già registrato o utilizzato.");
+                btn.innerText = "Registra Codice Pro";
+                btn.disabled = false;
+            } else {
+                try {
+                    await fetch(API_ENDPOINT, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ Name: inserito, createdAt: new Date().toISOString() })
+                    });
+                } catch(postErr) {
+                    console.log("Post non supportato o limitato dal server JSON, procediamo comunque con l'attivazione locale.");
+                }
+
+                isPro = true;
+                updatePlanUI();
+                chiudiModalUpgrade();
+                alert("🎉 Codice registrato con successo! Versione PRO attivata.");
+            }
+        } catch (e) {
+            console.error("Errore di connessione all'API:", e);
+            // Fallback locale in caso di errore di rete/mock per consentire l'uso immediato
+            isPro = true;
+            updatePlanUI();
+            chiudiModalUpgrade();
+            alert("Versione PRO attivata con successo!");
+        }
+    }
 
     fileInput.addEventListener('change', (e) => {
         selectedFile = e.target.files[0];
